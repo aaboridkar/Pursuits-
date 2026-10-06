@@ -1,0 +1,11 @@
+Opportunity ID,Field,Value,Basis
+OPP-001,Estimated start date,2026-11-02,SOW signed and won; no start date in tracker — assumed first Monday of next month
+OPP-001,Number of months,6,Assumed phase length for a $300K fixed bid
+OPP-002,Estimated start date,2026-10-19,"""T&M engagement started"" but no Mondelez allocations exist yet — assumed staffing from 19 Oct"
+OPP-002,Number of months,12,Assumed for a $2M data-product programme
+OPP-005,Estimated start date,2026-11-16,"Preparatory phase, 50% confidence of starting this quarter"
+OPP-005,Number of months,4,Assumed POV-to-pilot duration
+OPP-005,Confidence of winning,0.3,Stage default for Preparatory phase
+OPP-006,Estimated start date,2026-10-19,"SOW submitted, 50% confidence of starting this quarter"
+OPP-006,Number of months,2,Assumed for a $32K change request
+OPP-006,Confidence of winning,0.75,Stage default for SOW Submitted

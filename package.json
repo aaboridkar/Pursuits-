@@ -1,0 +1,38 @@
+{
+  "name": "workforce-capacity-deployment",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node node_modules/concurrently/dist/bin/index.js -k -n api,web -c blue,yellow \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "node node_modules/tsx/dist/cli.mjs watch server/index.ts",
+    "dev:web": "node node_modules/vite/bin/vite.js",
+    "generate": "node node_modules/tsx/dist/cli.mjs scripts/generate-synthetic.ts",
+    "typecheck": "node node_modules/typescript/bin/tsc -b",
+    "build": "node node_modules/typescript/bin/tsc -b && node node_modules/vite/bin/vite.js build",
+    "start": "node node_modules/tsx/dist/cli.mjs server/index.ts",
+    "test": "node node_modules/tsx/dist/cli.mjs --test server/engine/engine.test.ts"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "lucide-react": "^1.52.0",
+    "papaparse": "^5.7.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.4",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^10.0.5",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3"
+  }
+}

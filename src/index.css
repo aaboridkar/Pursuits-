@@ -1,0 +1,168 @@
+/* Fractal design tokens. The component library in src/components references
+   these names (bg-brand, text-ink-faint, shadow-tile, .eyebrow, .figure …);
+   this file is the single place their values are defined. */
+
+@import './assets/fonts/fonts.css';
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Open Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Type scale — dense, 13px body. */
+  --text-2xs: 11px;
+  --text-2xs--line-height: 1.4;
+  --text-xs: 12px;
+  --text-xs--line-height: 1.45;
+  --text-sm: 13px;
+  --text-sm--line-height: 1.45;
+  --text-base: 14px;
+  --text-base--line-height: 1.5;
+  --text-md: 16px;
+  --text-md--line-height: 1.35;
+  --text-lg: 20px;
+  --text-lg--line-height: 1.2;
+
+  /* Brand — Fractal blue acts ("act here"); Fractal yellow is the accent. */
+  --color-brand: #0076ce;
+  --color-brand-hover: #0067b4;
+  --color-brand-active: #00589a;
+  --color-brand-soft: #e7f2fb;
+  --color-brand-ink: #ffffff;
+  --color-accent: #fdb515;
+  --color-accent-hover: #f0a800;
+  --color-accent-ink: #2a2d33;
+
+  /* Ink & surfaces — the logo's slate grey anchors the neutrals. */
+  --color-ink: #1f2329;
+  --color-ink-muted: #474b55;
+  --color-ink-faint: #6b7180;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f3f4f7;
+  --color-canvas: #f6f7f9;
+  --color-border: #e3e5ea;
+  --color-border-strong: #c9cdd5;
+
+  /* Status — reserved for state, always paired with an icon + label. */
+  --color-good: #1e7f4f;
+  --color-good-soft: #e6f4ec;
+  --color-good-border: #a9d6bb;
+  --color-warn: #9a5a00;
+  --color-warn-soft: #fff4d9;
+  --color-warn-border: #f2d28a;
+  --color-bad: #c8321f;
+  --color-bad-soft: #fcebe8;
+  --color-bad-border: #f0b4aa;
+
+  /* Categorical — fixed order, validated for CVD separation (dataviz validator, light surface). */
+  --color-c1: #0076ce;
+  --color-c1-soft: #e7f2fb;
+  --color-c2: #c98a00;
+  --color-c2-soft: #fdf3dc;
+  --color-c3: #4aa6e6;
+  --color-c3-soft: #e9f5fd;
+  --color-c4: #22578c;
+  --color-c4-soft: #e6edf5;
+  --color-c5: #7a808c;
+  --color-c5-soft: #eff0f2;
+
+  /* Meters. */
+  --color-meter-track: #e9ebef;
+  --color-meter-fill: #0076ce;
+  --color-meter-mark: #1f2329;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --shadow-sm: 0 1px 2px rgb(31 35 41 / 0.05);
+  --shadow-tile: 0 1px 1px rgb(31 35 41 / 0.04);
+  --shadow-lg: 0 12px 32px -8px rgb(31 35 41 / 0.2), 0 2px 6px rgb(31 35 41 / 0.08);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Header controls (sort / filter buttons) take the header's casing. */
+th button {
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* Section / stat label. */
+@utility eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+}
+
+/* A printed KPI value. */
+@utility figure {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tables scroll inside their card, never the page. */
+@utility scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@utility tile-hover {
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+  &:hover {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+@utility fade-in {
+  animation: fade-in 180ms ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

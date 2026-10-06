@@ -1,0 +1,34 @@
+Requirement ID,Opportunity ID,Role,Grade,Required FTE,Supply Chain Skill,Technical Skill,Start Date,End Date
+OPP-001-R1,OPP-001,Engagement lead,6,0.5,ESG & sustainability,Power BI,2026-11-02,2027-05-01
+OPP-001-R2,OPP-001,Sustainability analyst,7,1,ESG & sustainability,Python,2026-11-02,2027-05-01
+OPP-001-R3,OPP-001,BI developer,8,1,ESG & sustainability,Power BI,2026-11-02,2027-03-01
+OPP-002-R1,OPP-002,Delivery manager,5,1,Manufacturing analytics,o9 Solutions,2026-10-19,2027-10-18
+OPP-002-R2,OPP-002,Solution architect,6,1,Supply planning,SAP S/4HANA,2026-10-19,2027-10-18
+OPP-002-R3,OPP-002,Data engineer,7,2,Manufacturing analytics,Databricks,2026-10-19,2027-10-18
+OPP-002-R4,OPP-002,Planning analyst,8,1,Supply planning,o9 Solutions,2026-11-19,2027-10-18
+OPP-004-R1,OPP-004,Manufacturing analytics lead,7,1,Manufacturing analytics,Python,2027-01-04,2027-03-03
+OPP-004-R2,OPP-004,Data scientist,8,1,Quality analytics,Machine learning,2027-01-04,2027-03-03
+OPP-005-R1,OPP-005,Procurement consultant,7,1,Procurement & sourcing,GenAI & agents,2026-11-16,2027-03-15
+OPP-005-R2,OPP-005,Automation developer,8,1,Procurement & sourcing,Python,2026-11-16,2027-03-15
+OPP-006-R1,OPP-006,Power BI developer,7,1,Logistics & transportation,Power BI,2026-10-19,2026-12-18
+OPP-006-R2,OPP-006,Spend analyst,8,0.5,Spend analytics,SQL,2026-10-19,2026-12-18
+OPPX-101-R1,OPPX-101,Engagement manager,5,1,Supply chain control tower,Power BI,2026-11-09,2027-08-08
+OPPX-101-R2,OPPX-101,Control tower consultant,7,2,Supply chain control tower,Databricks,2026-11-09,2027-08-08
+OPPX-101-R3,OPPX-101,Inventory analyst,8,1,Inventory management,SQL,2026-11-09,2027-08-08
+OPPX-102-R1,OPPX-102,Demand planning manager,6,1,Demand planning,Machine learning,2026-10-26,2027-04-25
+OPPX-102-R2,OPPX-102,Forecasting consultant,7,1,Demand planning,Python,2026-10-26,2027-04-25
+OPPX-102-R3,OPPX-102,Forecast analyst,8,1,Demand planning,Power BI,2026-10-26,2027-04-25
+OPPX-103-R1,OPPX-103,Inventory optimization lead,7,1,Inventory management,Optimization (OR),2026-12-01,2027-05-31
+OPPX-103-R2,OPPX-103,Inventory analyst,8,1,Inventory management,Python,2026-12-01,2027-05-31
+OPPX-104-R1,OPPX-104,Engagement manager,5,1,Network design,Optimization (OR),2027-01-11,2027-09-10
+OPPX-104-R2,OPPX-104,Network modeller,7,2,Network design,Python,2027-01-11,2027-09-10
+OPPX-104-R3,OPPX-104,Logistics analyst,8,1,Logistics & transportation,SQL,2027-01-11,2027-09-10
+OPPX-105-R1,OPPX-105,S&OP manager,6,1,S&OP,SAP IBP,2027-02-01,2028-01-31
+OPPX-105-R2,OPPX-105,S&OP consultant,7,1,S&OP,Python,2027-02-01,2028-01-31
+OPPX-105-R3,OPPX-105,Planning analyst,8,1,Demand planning,Power BI,2027-02-01,2028-01-31
+OPPX-106-R1,OPPX-106,Spend analytics consultant,7,1,Spend analytics,GenAI & agents,2027-01-04,2027-05-03
+OPPX-106-R2,OPPX-106,Procurement analyst,8,1,Procurement & sourcing,Power BI,2027-01-04,2027-05-03
+OPPX-107-R1,OPPX-107,Freight analytics consultant,7,1,Logistics & transportation,Python,2026-11-02,2027-02-01
+OPPX-107-R2,OPPX-107,Freight analyst,8,0.5,Logistics & transportation,Tableau,2026-11-02,2027-02-01
+OPPX-108-R1,OPPX-108,Replenishment consultant,7,1,Inventory management,Python,2027-03-01,2027-07-31
+OPPX-108-R2,OPPX-108,Retail analyst,8,1,Demand planning,SQL,2027-03-01,2027-07-31
