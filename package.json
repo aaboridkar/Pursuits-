@@ -10,7 +10,7 @@
     "generate": "node node_modules/tsx/dist/cli.mjs scripts/generate-synthetic.ts",
     "typecheck": "node node_modules/typescript/bin/tsc -b",
     "build": "node node_modules/typescript/bin/tsc -b && node node_modules/vite/bin/vite.js build",
-    "start": "node node_modules/tsx/dist/cli.mjs server/index.ts",
+    "start": "node node_modules/tsx/dist/cli.mjs server/start.ts",
     "test": "node node_modules/tsx/dist/cli.mjs --test server/engine/engine.test.ts"
   },
   "dependencies": {

@@ -1,4 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from 'express'
+import { timingSafeEqual } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { GRADES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, SKILL_CATALOG, stageOutcome } from '../shared/catalog'
@@ -44,6 +45,19 @@ const app = express()
 const behindProxy = ['1', 'true'].includes(String(process.env.TRUST_PROXY).toLowerCase())
 if (behindProxy) app.set('trust proxy', true)
 app.use(express.json())
+
+// When the screens are served by a gateway (App Service in forwarding mode) set the same GATEWAY_KEY on both:
+// this server then answers only requests the gateway forwarded, so nobody can reach the data — or forge the
+// signed-in name the change log records — by calling this machine directly.
+const gatewayKey = process.env.GATEWAY_KEY ?? ''
+if (gatewayKey) {
+  const expected = Buffer.from(gatewayKey)
+  app.use('/api', (req, res, next) => {
+    const given = Buffer.from(String(req.headers['x-pursuits-gateway-key'] ?? ''))
+    if (given.length === expected.length && timingSafeEqual(given, expected)) return next()
+    res.status(401).json({ error: 'Only the Pursuits gateway may call this server' })
+  })
+}
 
 app.get('/api/meta', (req, res) => res.json(model(req).meta()))
 app.get('/api/overview', (req, res) => res.json(model(req).overview(horizon(req))))
