@@ -195,5 +195,7 @@ if (fs.existsSync(dist)) {
   app.get(/^\/(?!api).*/, (_req, res) => res.sendFile(path.join(dist, 'index.html')))
 }
 
-const port = Number(process.env.API_PORT ?? process.env.PORT ?? 4100)
+// In dev the Vite proxy targets API_PORT (default 4100), so an inherited PORT must not move the API.
+const isDev = process.argv.includes('--dev')
+const port = Number(process.env.API_PORT ?? (isDev ? undefined : process.env.PORT) ?? 4100)
 app.listen(port, () => console.log(`Workforce API on http://localhost:${port} · ${data.employees.length} employees · ${data.opportunities.length} opportunities`))
