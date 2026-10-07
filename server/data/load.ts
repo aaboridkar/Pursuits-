@@ -4,8 +4,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import Papa from 'papaparse'
-import { CATEGORY_KIND, PROFICIENCY_ALIASES, SKILL_ALIASES, SKILL_CATALOG, STAGE_WIN_DEFAULT } from '../../shared/catalog'
-import { addDays, addMonths, fromExcelSerial } from '../../shared/dates'
+import { CATEGORY_KIND, PROFICIENCY_ALIASES, SKILL_ALIASES, SKILL_CATALOG, STAGE_WIN_DEFAULT, normalizeStage } from '../../shared/catalog'
+import { addDays, fromExcelSerial } from '../../shared/dates'
+import { applyOpportunityEdit, probabilityOf, spreadMonthly } from '../../shared/opportunityEdit'
 import type {
   AllocationKind,
   AllocationRow,
@@ -18,6 +19,8 @@ import type {
   Provenance,
   Requirement,
 } from '../../shared/types'
+
+export { applyOpportunityEdit }
 
 export const ROOT = path.resolve(import.meta.dirname, '..', '..')
 const SRC = path.join(ROOT, 'sample_data_csv')
@@ -134,8 +137,13 @@ function loadOpportunities(quality: DataQualityIssue[]) {
     const fp: Opportunity['fieldProvenance'] = {}
     const notes: string[] = []
     const monthly = FY_MONTHS.map(([col, month]) => ({ month, value: money(r[col]) ?? 0 })).filter((m) => m.value > 0)
-    const stage = r['Stage']?.trim() ?? ''
+    const trackerStage = r['Stage']?.trim() ?? ''
     const status = r['Status']?.trim() ?? ''
+    const outcome = outcomeOf(trackerStage, status)
+    // The tracker has a single "Closed"; the app splits it by how the deal ended.
+    const normalized = normalizeStage(trackerStage)
+    const stage = normalized.toLowerCase() === 'closed' ? (outcome === 'lost' ? 'Closed - Lost' : 'Closed - Won') : normalized
+    if (stage.toLowerCase() !== trackerStage.toLowerCase()) (fp.stage = 'derived'), notes.push(`Tracker stage "${trackerStage}" is shown as ${stage}.`)
     const o: Opportunity = {
       id,
       sno: num(r['S.No']),
@@ -151,7 +159,8 @@ function loadOpportunities(quality: DataQualityIssue[]) {
       confThisQuarter: num(r['Confidence of starting this quarter']),
       confNextQuarter: num(r['Confidence of starting next quarter']),
       status,
-      outcome: outcomeOf(stage, status),
+      lead: null,
+      outcome,
       probability: 0,
       monthly,
       provenance,
@@ -191,12 +200,11 @@ function loadOpportunities(quality: DataQualityIssue[]) {
       o.confWinning = STAGE_WIN_DEFAULT[stage] ?? 0.5
       fp.confWinning = 'synthetic'
     }
-    o.probability = o.outcome === 'won' ? 1 : o.outcome === 'lost' ? 0 : o.confWinning
+    o.probability = probabilityOf(o)
     // If the tracker has no monthly split, spread the weighted value over the (possibly assumed) duration.
-    if (monthly.length === 0 && o.value && o.estStartDate && o.months && o.outcome !== 'lost') {
-      const per = (o.value * o.probability) / o.months
-      o.monthly = Array.from({ length: o.months }, (_, k) => ({ month: addMonths(o.estStartDate!, k).slice(0, 7), value: Math.round(per) }))
-      fp.monthly = 'derived'
+    if (monthly.length === 0) {
+      o.monthly = spreadMonthly(o)
+      if (o.monthly.length) fp.monthly = 'derived'
     }
     return o
   }
@@ -261,7 +269,9 @@ function loadSkills(quality: DataQualityIssue[]) {
     out.push({
       employeeCode: r['Employee Code'],
       skill: r['Skill'],
-      category: r['Skill Category'] as EmployeeSkill['category'],
+      // The section comes from the catalogue, not the file, so the CSV's older "Technical" label follows the
+      // Data Science / FDE split.
+      category: catalogue.get(r['Skill'].toLowerCase())?.category ?? (r['Skill Category'] as EmployeeSkill['category']),
       proficiency: Number(r['Proficiency']),
       lastUpdated: r['Last Updated'],
       provenance: 'synthetic',

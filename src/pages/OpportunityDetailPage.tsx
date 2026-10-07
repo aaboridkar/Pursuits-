@@ -61,7 +61,7 @@ function Detail({ o, meta }: { o: OpportunityView; meta: Meta | null }) {
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <KpiTile label="Deal value" value={o.value === null ? 'Not stated' : fmtMoney(o.value)} detail={`${fmtMoney((o.value ?? 0) * o.probability)} weighted`} />
-        <KpiTile label="Win probability" value={fmtPct(o.probability)} detail={fp.confWinning === 'synthetic' ? 'assumed from stage' : fp.confWinning === 'derived' ? 'derived from tracker' : 'from tracker'} meter={o.probability * 100} />
+        <KpiTile label="Win probability" value={fmtPct(o.probability)} detail={fp.confWinning === 'app' ? 'set in this app' : fp.confWinning === 'synthetic' ? 'assumed from stage' : fp.confWinning === 'derived' ? 'derived from tracker' : 'from tracker'} meter={o.probability * 100} />
         <KpiTile label="Estimated start" value={o.estStartDate ? fmtDate(o.estStartDate) : '—'} detail={`${o.estStartDate ? fiscalQuarter(o.estStartDate) : ''}${fp.estStartDate ? ` · ${fp.estStartDate === 'synthetic' ? 'assumed' : 'derived'}` : ''}`} />
         <KpiTile label="Duration" value={o.months ? `${o.months} months` : '—'} detail={fp.months ? (fp.months === 'synthetic' ? 'assumed' : 'derived') : 'from tracker'} />
         <KpiTile label="People demand" value={`${fmtNum(o.totalFte)} FTE`} detail={`${fmtNum(o.weightedFte)} FTE weighted · ${o.requirements.length} roles`} />
@@ -303,7 +303,8 @@ function RequirementDialog({ opportunity, meta, initial, onClose, onSave }: { op
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((x) => ({ ...x, [k]: v }))
   const valid = d.role.trim() && d.fte > 0 && d.start && d.end && d.end >= d.start
   const sc = meta.skillCatalog.filter((s) => s.category === 'Supply Chain')
-  const tech = meta.skillCatalog.filter((s) => s.category === 'Technical')
+  // The technical skill of a requirement: anything outside the supply chain section (Data Science or FDE).
+  const tech = meta.skillCatalog.filter((s) => s.category !== 'Supply Chain')
 
   return (
     <Dialog

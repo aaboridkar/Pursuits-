@@ -11,6 +11,9 @@ interface CollapsibleProps {
  /** Always-visible summary at the right of the header (a badge, a note). Non-interactive. */
  summary?: ReactNode
  defaultOpen?: boolean
+ /** Controlled mode: pass both to open or close the section from outside (e.g. after a save). */
+ open?: boolean
+ onOpenChange?: (open: boolean) => void
  children: ReactNode
 }
 
@@ -19,8 +22,10 @@ interface CollapsibleProps {
  * 0fr and 1fr grid rows, so it opens to its natural height with no measuring;
  * the global reduced-motion rule in index.css collapses the transition.
  */
-export function Collapsible({ label, icon, count, summary, defaultOpen = false, children }: CollapsibleProps) {
- const [open, setOpen] = useState(defaultOpen)
+export function Collapsible({ label, icon, count, summary, defaultOpen = false, open: openProp, onOpenChange, children }: CollapsibleProps) {
+ const [openState, setOpenState] = useState(defaultOpen)
+ const open = openProp ?? openState
+ const setOpen = (next: (o: boolean) => boolean) => (onOpenChange ? onOpenChange(next(open)) : setOpenState(next))
  const id = useId()
  const panelId = `${id}-panel`
  const headerId = `${id}-header`

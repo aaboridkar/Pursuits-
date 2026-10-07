@@ -25,6 +25,8 @@ export interface Employee {
   joiningDate: ISODate
   status: string
   provenance: Provenance
+  /** Display name, when the employee master has one (the source data has codes only). */
+  name?: string
 }
 
 export interface AllocationRow {
@@ -108,7 +110,7 @@ export interface EmployeeCapacity {
 
 // --- Skills -------------------------------------------------------------------
 
-export type SkillCategory = 'Supply Chain' | 'Technical'
+export type SkillCategory = 'Supply Chain' | 'Data Science' | 'FDE'
 
 export interface EmployeeSkill {
   employeeCode: string
@@ -142,15 +144,62 @@ export interface Opportunity {
   confThisQuarter: number | null
   confNextQuarter: number | null
   status: string
+  /** Who leads the pursuit. Not in the tracker, so only ever set in the app. */
+  lead: string | null
   outcome: OpportunityOutcome
   /** Probability used to weight demand: 1 for won, 0 for lost, else confidence of winning. */
   probability: number
   /** Weighted revenue by fiscal month (YYYY-MM). */
   monthly: { month: string; value: number }[]
   provenance: Provenance
+  /** When the record entered the database, and when it was last saved (ISO timestamps). */
+  createdAt?: string
+  modifiedAt?: string
   /** Per-field provenance where it differs from the record's own. */
   fieldProvenance: Partial<Record<keyof Opportunity, Provenance>>
   notes: string[]
+}
+
+/** Opportunity fields that can be changed in the app. */
+export type OpportunityEdit = Partial<Pick<Opportunity, 'type' | 'stage' | 'estStartDate' | 'months' | 'value' | 'confWinning' | 'lead'>>
+
+/** A row of the client dimension (dim_client): every account the app knows. */
+export interface Client {
+  id: string
+  name: string
+  /** Where the client was first seen: the opportunity tracker, the allocation report, or added in the app. */
+  source: 'opportunity' | 'allocation' | 'app'
+  createdAt: string
+}
+
+/** A skill in the catalogue (dim_skill): the columns of the skills matrix. */
+export interface SkillDef {
+  skill: string
+  category: SkillCategory
+  /** Groups related skills for candidate matching; skills added in the app get their own. */
+  family: string
+  /** 'catalog' = shipped with the app; 'app' = added on the Skills tab. */
+  source: 'catalog' | 'app'
+  createdAt: string
+}
+
+/** One changed field, as recorded in the audit log. */
+export interface AuditEntry {
+  at: string
+  /** Who saved: the IP address for new saves (earlier entries may hold a typed-in name). */
+  editor: string
+  /** Address the change came from, as the server saw it. */
+  ip: string
+  userAgent: string
+  opportunityId: string
+  opportunityName: string
+  /**
+   * The field changed, 'created' for a new opportunity (`to` holds its name), or 'skill' for a skill level
+   * (`opportunityId` holds the employee code and `opportunityName` the skill; levels 0 = none to 4).
+   */
+  field: keyof OpportunityEdit | 'created' | 'skill' | 'skill-created'
+  from: string | number | null
+  to: string | number | null
 }
 
 export interface Requirement {

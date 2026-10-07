@@ -19,6 +19,9 @@ import {
  Pencil,
  Shuffle,
  ArrowUpRight,
+ CalendarSync,
+ FileCheck,
+ Timer,
  Boxes,
  Building2,
  Calculator,
@@ -50,6 +53,7 @@ import {
  MessagesSquare,
  Mic,
  Network,
+ Package,
  ParkingSquare,
  Pause,
  Play,
@@ -69,6 +73,7 @@ import {
  Users,
  Video,
  X,
+ createLucideIcon,
  type LucideIcon,
 } from 'lucide-react'
 
@@ -123,6 +128,24 @@ export const NAV_ICON: Record<string, LucideIcon> = {
  facilitator: MessagesSquare,
  decisions: Gavel,
  governance: ShieldAlert,
+}
+
+/** Padlock with a dollar sign — the price is locked in. Drawn on lucide's 24px grid so it matches the set. */
+const LockDollar = createLucideIcon('lock-dollar', [
+ ['path', { d: 'M7 10V7a5 5 0 0 1 10 0v3', key: 'shackle' }],
+ ['rect', { x: '4', y: '10', width: '16', height: '12', rx: '2', key: 'body' }],
+ ['path', { d: 'M14 13.5h-2.5a1.5 1.5 0 0 0 0 3h1a1.5 1.5 0 0 1 0 3H10', key: 's' }],
+ ['path', { d: 'M12 12.5v1M12 19.5v1', key: 'bar' }],
+])
+
+/** Commercial model of an opportunity; `other` covers types outside the five standard ones (e.g. retainers). */
+export const OPP_TYPE_ICON: Record<'fixed' | 'tm' | 'product' | 'outcome' | 'output' | 'other', LucideIcon> = {
+ fixed: LockDollar, // price locked in
+ tm: Timer, // billed by time spent
+ product: Package,
+ outcome: Target, // paid on results achieved
+ output: FileCheck, // paid per deliverable
+ other: CalendarSync, // e.g. monthly retainers
 }
 
 /** The deployment journey — Opportunity › Requirement › Gap › Candidates › Employee. */

@@ -2,13 +2,19 @@
 // and that a deployment decision flows through capacity, coverage and risk.
 
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { test } from 'node:test'
+import type { AuditEntry } from '../../shared/types'
+import { applyOpportunityEdit } from '../../shared/opportunityEdit'
 import { loadDataset } from '../data/load'
+import { openDb, readAudit, readDataset, readRuntime, updateRuntime } from '../db'
 import type { RuntimeState } from '../store'
 import { Model } from './model'
 
 const data = loadDataset()
-const empty = (): RuntimeState => ({ version: 1, assignments: [], requirementsAdded: [], requirementEdits: {}, requirementsDeleted: [], skillReviews: {}, skillEdits: {} })
+const empty = (): RuntimeState => ({ version: 1, assignments: [], opportunitiesAdded: [], requirementsAdded: [], requirementEdits: {}, requirementsDeleted: [], opportunityEdits: {}, opportunityTimes: {}, clients: [], skillCatalog: [], skillReviews: {}, skillEdits: {} })
 
 test('source population: 11 employees, rows without an employee code excluded', () => {
   const m = new Model(data, empty(), 'source')
@@ -47,6 +53,67 @@ test('opportunity fields are derived from monthly revenue before anything is ass
   const philips = data.opportunities.find((o) => o.id === 'OPP-005')!
   assert.equal(philips.value, null) // "$-"
   assert.equal(philips.fieldProvenance.estStartDate, 'synthetic')
+})
+
+test('tracker stages map onto the pipeline stage list', () => {
+  const oppx104 = data.opportunities.find((o) => o.id === 'OPPX-104')!
+  assert.equal(oppx104.stage, 'Problem Understanding') // "Qualification" in the tracker
+  assert.equal(oppx104.fieldProvenance.stage, 'derived')
+  // The tracker's single "Closed" splits by how the deal ended.
+  assert.equal(data.opportunities.find((o) => o.id === 'OPP-001')!.stage, 'Closed - Won') // "SOW signed and WON"
+  assert.equal(data.opportunities.find((o) => o.id === 'OPP-003')!.stage, 'Closed - Lost') // "never came through"
+})
+
+test('editing an opportunity reweights its revenue and follows its stage', () => {
+  const sum = (o: { monthly: { value: number }[] }) => o.monthly.reduce((s, m) => s + m.value, 0)
+  const state = empty()
+  state.opportunityEdits['OPP-004'] = { confWinning: 0.45, value: 230000 } // Pepsico: 90% of 115,000 = 103,500
+  const pepsico = new Model(data, state, 'all').opportunities.find((o) => o.id === 'OPP-004')!
+  assert.equal(pepsico.probability, 0.45)
+  assert.equal(sum(pepsico), 103500) // half the confidence, twice the value
+  assert.equal(pepsico.fieldProvenance.confWinning, 'app')
+
+  state.opportunityEdits['OPP-004'] = { estStartDate: '2027-03-01' } // tracker split Jan 63,000 + Feb 40,500, moved 2 months later
+  const moved = new Model(data, state, 'all').opportunities.find((o) => o.id === 'OPP-004')!
+  assert.deepEqual(moved.monthly, [{ month: '2027-03', value: 63000 }, { month: '2027-04', value: 40500 }])
+
+  // OPPX-101: tracker split Nov–Mar of 52,889 (680,000 × 70% over 9 months). The page previews
+  // unsaved edits with this same function, so these are also the numbers shown before Save.
+  const oppx101 = data.opportunities.find((o) => o.id === 'OPPX-101')!
+  assert.equal(sum(applyOpportunityEdit(oppx101, { value: 1360000 })), 2 * sum(oppx101)) // value doubled
+  assert.ok(Math.abs(sum(applyOpportunityEdit(oppx101, { confWinning: 0.35 })) - sum(oppx101) / 2) <= oppx101.monthly.length) // win halved (each month rounds to a dollar)
+  const threeMonths = applyOpportunityEdit(oppx101, { months: 3 }) // re-spread from the start month
+  assert.deepEqual(threeMonths.monthly.map((m) => m.month), ['2026-11', '2026-12', '2027-01'])
+  assert.equal(threeMonths.monthly[0].value, Math.round((680000 * 0.7) / 3))
+
+  state.opportunityEdits['OPP-004'] = { stage: 'Closed - Won' }
+  assert.equal(new Model(data, state, 'all').opportunities.find((o) => o.id === 'OPP-004')!.outcome, 'won')
+  state.opportunityEdits['OPP-004'] = { stage: 'Closed - Timed Out' }
+  const timedOut = new Model(data, state, 'all').opportunities.find((o) => o.id === 'OPP-004')!
+  assert.equal(timedOut.outcome, 'lost')
+  assert.equal(timedOut.probability, 0)
+  state.opportunityEdits['OPP-003'] = { stage: 'Proposal Submitted', lead: 'A. Lead' } // lost deal reopened
+  const reopened = new Model(data, state, 'all').opportunities.find((o) => o.id === 'OPP-003')!
+  assert.equal(reopened.outcome, 'open')
+  assert.equal(reopened.lead, 'A. Lead')
+})
+
+test('the database holds exactly what the CSVs load, and saves edits with their change log', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pursuits-'))
+  const db = openDb(path.join(dir, 'test.db'), { importLegacy: false })
+  try {
+    assert.deepEqual(readDataset(db), data)
+    const entry: AuditEntry = { at: '2026-10-07T09:00:00.000Z', editor: 'Tester', ip: '10.0.0.5', userAgent: 'test', opportunityId: 'OPP-006', opportunityName: 'x', field: 'value', from: 32000, to: 45000 }
+    const before = readRuntime(db)
+    assert.ok(before.opportunityTimes['OPP-006']?.createdAt, 'every imported opportunity gets a created time')
+    const saved = updateRuntime(db, (s) => (s.opportunityEdits['OPP-006'] = { value: 45000, lead: 'A. Lead' }), [entry])
+    assert.deepEqual(readRuntime(db), saved)
+    assert.equal(saved.version, before.version + 1)
+    assert.deepEqual(readAudit(db, 10), [entry])
+  } finally {
+    db.close()
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('a one-person seat on a multi-FTE requirement is judged per seat', () => {

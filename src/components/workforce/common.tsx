@@ -97,8 +97,11 @@ export function SortTh<K extends string>({ label, k, sort, onSort, className = '
 }
 
 /** Multi-select column filters keyed by column. Pairs with <ColumnFilter>. */
-export function useFilters<K extends string>() {
-  const [filters, setFilters] = useState<Partial<Record<K, Set<string>>>>({})
+/** `initial` pre-ticks values per column, e.g. to hide some rows until the user asks for them. */
+export function useFilters<K extends string>(initial: Partial<Record<K, string[]>> = {}) {
+  const [filters, setFilters] = useState<Partial<Record<K, Set<string>>>>(() =>
+    Object.fromEntries(Object.entries(initial).map(([k, vs]) => [k, new Set(vs as string[])])) as Partial<Record<K, Set<string>>>,
+  )
   const get = (k: K) => filters[k] ?? new Set<string>()
   const toggle = (k: K, v: string) =>
     setFilters((f) => {

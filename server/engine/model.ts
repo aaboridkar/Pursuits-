@@ -25,8 +25,9 @@ import type {
   RequirementView,
   RiskLevel,
   Scope,
+  SkillCategory,
 } from '../../shared/types'
-import type { Dataset } from '../data/load'
+import { applyOpportunityEdit, type Dataset } from '../data/load'
 import type { RuntimeState } from '../store'
 import { buildTimeline, capacityAt, dayAt, monthBreakdown, projectHistory, segmentsOf, statusOf, type Timeline } from './capacity'
 import { scoreCandidate, type MatchContext } from './matching'
@@ -49,6 +50,8 @@ export class Model {
   readonly capacity = new Map<string, EmployeeCapacity>()
   readonly skillsByEmp = new Map<string, EmployeeSkill[]>()
   readonly months: string[]
+  /** The skill catalogue: dim_skill from the database, or the shipped list when there is none (tests). */
+  readonly catalog: { skill: string; category: SkillCategory; family: string }[]
   private readonly ctx: MatchContext
   private candidateCache = new Map<string, Candidate[]>()
   private reqViews?: RequirementView[]
@@ -59,12 +62,18 @@ export class Model {
     readonly runtime: RuntimeState,
     readonly scope: Scope,
   ) {
+    // Grouped by section (Supply chain, Data Science, FDE) so each forms one block of matrix columns; catalogue order within.
+    const SECTION_ORDER: SkillCategory[] = ['Supply Chain', 'Data Science', 'FDE']
+    const catalog = runtime.skillCatalog.length ? runtime.skillCatalog : SKILL_CATALOG
+    this.catalog = catalog.map((c, i) => ({ c, i })).sort((a, b) => SECTION_ORDER.indexOf(a.c.category) - SECTION_ORDER.indexOf(b.c.category) || a.i - b.i).map(({ c }) => c)
     const inScope = <T extends { provenance: string }>(x: T) => scope === 'all' || x.provenance !== 'synthetic'
     this.employees = data.employees.filter(inScope)
     const codes = new Set(this.employees.map((e) => e.code))
 
     // Opportunities: synthetic ones drop out of 'source' scope; gap-fill fields on real ones stay.
-    this.opportunities = data.opportunities.filter(inScope)
+    this.opportunities = [...data.opportunities, ...runtime.opportunitiesAdded]
+      .filter(inScope)
+      .map((o) => ({ ...o, ...runtime.opportunityTimes[o.id] })).map((o) => applyOpportunityEdit(o, runtime.opportunityEdits[o.id]))
     const oppIds = new Set(this.opportunities.map((o) => o.id))
     this.requirements = [...data.requirements, ...runtime.requirementsAdded]
       .filter((r) => !runtime.requirementsDeleted.includes(r.id))
@@ -83,7 +92,7 @@ export class Model {
     for (const [key, level] of Object.entries(runtime.skillEdits)) {
       const [code, skill] = key.split('|')
       if (level > 0 && !skills.some((s) => s.employeeCode === code && s.skill === skill)) {
-        const cat = SKILL_CATALOG.find((c) => c.skill === skill)
+        const cat = this.catalog.find((c) => c.skill === skill)
         skills.push({ employeeCode: code, skill, category: cat?.category ?? 'Supply Chain', proficiency: level, lastUpdated: runtime.skillReviews[code] ?? AS_OF, provenance: 'app', basis: 'Added in app' })
       }
     }
@@ -464,6 +473,8 @@ export class Model {
       const reviewed = list.map((s) => s.lastUpdated).filter((d): d is string => !!d).sort().at(-1) ?? null
       return {
         code,
+        /** From the employee master; null until names are loaded there. */
+        name: this.employees.find((e) => e.code === code)?.name ?? null,
         title: cap?.title ?? 'Not in allocation report',
         grade: cap?.grade ?? null,
         status: cap?.status ?? null,
@@ -477,7 +488,7 @@ export class Model {
     })
     // Demand per skill from live requirements vs people with the skill at Advanced+.
     const live = this.requirementViews().filter((r) => r.coverage !== 'closed' && r.outcome !== 'lost')
-    const coverage = SKILL_CATALOG.map(({ skill, category }) => {
+    const coverage = this.catalog.map(({ skill, category }) => {
       const holders = this.skills.filter((s) => s.skill === skill && known.has(s.employeeCode))
       return {
         skill, category,
@@ -486,7 +497,7 @@ export class Model {
         demandFte: round1(live.filter((r) => r.scSkill === skill || r.techSkill === skill).reduce((s, r) => s + r.unmetFte * r.probability, 0)),
       }
     })
-    return { asOf: AS_OF, staleDays: STALE_SKILL_DAYS, people: people.sort((a, b) => (b.daysSinceUpdate ?? 9999) - (a.daysSinceUpdate ?? 9999)), coverage }
+    return { asOf: AS_OF, staleDays: STALE_SKILL_DAYS, people: people.sort((a, b) => a.code.localeCompare(b.code)), coverage }
   }
 
   meta(): Meta {
@@ -496,7 +507,7 @@ export class Model {
       sources: this.data.sources,
       quality: this.data.quality,
       grades: GRADES.map(({ grade, title }) => ({ grade, title })),
-      skillCatalog: SKILL_CATALOG.map(({ skill, category }) => ({ skill, category })),
+      skillCatalog: this.catalog.map(({ skill, category }) => ({ skill, category })),
       months: this.months,
       counts: {
         employees: this.employees.length,

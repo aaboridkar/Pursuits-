@@ -2,3 +2,7 @@ node_modules
 dist
 data/runtime/*.json
 .claude/
+.env
+data/runtime/*.jsonl
+data/*.db*
+data/runtime/

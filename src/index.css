@@ -127,6 +127,34 @@ th button {
   font-variant-numeric: tabular-nums;
 }
 
+/* Thin, light scrollbars everywhere; the thumb darkens a little while the pointer is over
+   whatever is scrolling, so it stays findable without drawing the eye. */
+@layer base {
+  /* Chrome, Edge, Safari: a 6px rounded thumb on a clear track. */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: 999px;
+  }
+  *:hover::-webkit-scrollbar-thumb {
+    background: var(--color-ink-faint);
+  }
+  /* Firefox has no ::-webkit-scrollbar; its own thin style is the closest. (Setting these in
+     Chrome would switch it to its 10px "thin" bar and ignore the 6px rules above.) */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-border-strong) transparent;
+    }
+  }
+}
+
 /* Tables scroll inside their card, never the page. */
 @utility scroll-x {
   overflow-x: auto;

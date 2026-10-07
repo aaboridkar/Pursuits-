@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Tile } from '../ui/Tile'
 import { StatBar } from '../ui/StatBar'
 
@@ -11,6 +12,10 @@ interface KpiTileProps {
  tone?: 'brand' | 'bad' | 'good'
  /** No own border/radius/shadow — for a strip of tiles sharing a divider between them. */
  plain?: boolean
+ /** Extra breakdown under the figure, e.g. a quarter strip. */
+ children?: ReactNode
+ /** Detail on the same line as the figure, to save a row. */
+ inline?: boolean
 }
 
 const TONE_FILL: Record<NonNullable<KpiTileProps['tone']>, string> = {
@@ -25,12 +30,21 @@ const TONE_TRACK: Record<NonNullable<KpiTileProps['tone']>, string> = {
 }
 
 /** A KPI value is never left to a meter alone — the figure prints first. */
-export function KpiTile({ label, value, detail, meter, meterTarget, tone = 'brand', plain }: KpiTileProps) {
+export function KpiTile({ label, value, detail, meter, meterTarget, tone = 'brand', plain, children, inline }: KpiTileProps) {
  return (
   <Tile className="min-w-0" plain={plain}>
    <div className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-ink-faint">{label}</div>
-   <div className="figure tabular mt-0.5 text-lg text-ink">{value}</div>
-   <div className="mt-0.5 truncate text-[11px] text-ink-muted">{detail}</div>
+   {inline ? (
+    <div className="mt-0.5 flex min-w-0 items-baseline gap-2">
+     <span className="figure tabular shrink-0 text-lg text-ink">{value}</span>
+     <span className="truncate text-[11px] text-ink-muted" title={detail}>{detail}</span>
+    </div>
+   ) : (
+    <>
+     <div className="figure tabular mt-0.5 text-lg text-ink">{value}</div>
+     <div className="mt-0.5 truncate text-[11px] text-ink-muted">{detail}</div>
+    </>
+   )}
    {meter !== undefined && (
     <StatBar
      value={meter}
@@ -40,6 +54,7 @@ export function KpiTile({ label, value, detail, meter, meterTarget, tone = 'bran
      className="mt-2"
     />
    )}
+   {children}
   </Tile>
  )
 }

@@ -25,32 +25,37 @@ export function LeftRail() {
     { to: '/data', prefix: '/data', label: 'Data', icon: NAV_ICON.data, badge: 0 },
   ]
 
+  // Collapsed to icons; expands over the page (not pushing it) while hovered or keyboard-focused, and
+  // collapses again on its own. The short delay on expanding stops it flickering open when the
+  // pointer only passes across.
   return (
-    <nav className="flex w-[76px] shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border bg-surface py-4">
-      {destinations.map((d) => {
-        const Icon = d.icon
-        const isActive = d.prefix === '/' ? pathname === '/' : pathname.startsWith(d.prefix)
-        return (
-          <NavLink
-            key={d.to}
-            to={d.to}
-            aria-current={isActive ? 'page' : undefined}
-            className={`relative flex w-[62px] flex-col items-center gap-1 rounded-md py-2 text-center text-[10.5px] font-semibold transition-colors ${
-              isActive ? 'bg-brand-soft text-brand' : 'text-ink-faint hover:bg-surface-sunken hover:text-ink-muted'
-            }`}
-          >
-            <span className="relative">
-              <Icon size={19} strokeWidth={2} aria-hidden="true" />
-              {d.badge > 0 && (
-                <span className="tabular absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-bad px-[3px] text-[9px] font-bold text-white">
-                  {d.badge}
-                </span>
-              )}
-            </span>
-            <span className="leading-[1.15]">{d.label}</span>
-          </NavLink>
-        )
-      })}
-    </nav>
+    <div className="relative w-[52px] shrink-0">
+      <nav className="group absolute inset-y-0 left-0 z-40 flex w-[52px] flex-col gap-1 overflow-y-auto overflow-x-hidden border-r border-border bg-surface py-3 transition-[width,box-shadow] delay-0 duration-150 hover:w-[184px] hover:shadow-lg hover:delay-150 has-focus-visible:w-[184px] has-focus-visible:shadow-lg">
+        {destinations.map((d) => {
+          const Icon = d.icon
+          const isActive = d.prefix === '/' ? pathname === '/' : pathname.startsWith(d.prefix)
+          return (
+            <NavLink
+              key={d.to}
+              to={d.to}
+              aria-current={isActive ? 'page' : undefined}
+              className={`mx-1.5 flex h-10 shrink-0 items-center gap-3 rounded-md px-[9px] text-[12.5px] font-semibold whitespace-nowrap transition-colors ${
+                isActive ? 'bg-brand-soft text-brand' : 'text-ink-faint hover:bg-surface-sunken hover:text-ink-muted'
+              }`}
+            >
+              <span className="relative shrink-0">
+                <Icon size={19} strokeWidth={2} aria-hidden="true" />
+                {d.badge > 0 && (
+                  <span className="tabular absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-bad px-[3px] text-[9px] font-bold text-white">
+                    {d.badge}
+                  </span>
+                )}
+              </span>
+              <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-hover:delay-150 group-has-focus-visible:opacity-100">{d.label}</span>
+            </NavLink>
+          )
+        })}
+      </nav>
+    </div>
   )
 }

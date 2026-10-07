@@ -1,5 +1,6 @@
 import { AlertTriangle, Armchair, CheckCircle2, CircleDashed, Clock, Eye, Hourglass, Loader, Palmtree, ShieldAlert, Trophy, UserCheck, UserPlus, XCircle } from 'lucide-react'
 import { Badge } from '../ui/Badge'
+import { OPP_TYPE_ICON } from '../ui/icons'
 import type { AllocationKind, AvailabilityStatus, CoverageStatus, OpportunityOutcome, Provenance, RiskLevel } from '../../../shared/types'
 
 type Tone = 'neutral' | 'blue' | 'yellow' | 'success' | 'danger'
@@ -109,8 +110,42 @@ export function ProvenanceTag({ provenance, compact }: { provenance: Provenance;
 }
 
 /** Field-level marker for a value that was assumed or derived rather than read. */
+function oppTypeKey(type: string): keyof typeof OPP_TYPE_ICON {
+  const t = type.toLowerCase()
+  if (t.includes('fixed')) return 'fixed'
+  if (t.includes('t&m') || t.includes('time')) return 'tm'
+  if (t.includes('product')) return 'product'
+  if (t.includes('outcome')) return 'outcome'
+  if (t.includes('output')) return 'output'
+  return 'other'
+}
+
+/** Just the icon for an opportunity type, e.g. beside a type picker. */
+export function OppTypeIcon({ type, size = 13 }: { type: string; size?: number }) {
+  const Icon = OPP_TYPE_ICON[oppTypeKey(type)]
+  return <Icon size={size} strokeWidth={2.2} className="shrink-0 text-ink-faint" aria-hidden="true" />
+}
+
+/** Opportunity type with its icon — read-only. */
+export function OppType({ type }: { type: string }) {
+  if (!type) return <span className="text-ink-faint">—</span>
+  const Icon = OPP_TYPE_ICON[oppTypeKey(type)]
+  return (
+    <span className="inline-flex max-w-[105px] items-center gap-1.5 whitespace-nowrap" title={type}>
+      <Icon size={13} strokeWidth={2.2} className="shrink-0 text-ink-faint" aria-hidden="true" />
+      <span className="truncate">{type}</span>
+    </span>
+  )
+}
+
 export function Est({ provenance, note }: { provenance?: Provenance; note?: string }) {
   if (!provenance || provenance === 'source') return null
+  if (provenance === 'app')
+    return (
+      <sup className="ml-0.5 cursor-help text-[9.5px] font-semibold text-brand" title="Changed in this app">
+        edit
+      </sup>
+    )
   return (
     <sup className="ml-0.5 cursor-help text-[9.5px] font-semibold text-ink-faint" title={note ?? (provenance === 'derived' ? 'Derived from other tracker fields' : 'Assumed — blank in the tracker')}>
       {provenance === 'derived' ? 'drv' : 'est.'}
