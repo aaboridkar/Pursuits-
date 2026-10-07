@@ -6,9 +6,8 @@ import { GRADES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, SKILL_CATALOG, stageOutc
 import { probabilityOf, spreadMonthly } from '../shared/opportunityEdit'
 import type { Assignment, AssignmentStatus, AuditEntry, Horizon, Opportunity, OpportunityEdit, Requirement, Scope } from '../shared/types'
 import { ROOT } from './data/load'
-import { DB_FILE } from './db'
 import { Model } from './engine/model'
-import { dbStatus, getData, getGeneration, getState, mutate, newId, onChange, readAudit, resetState } from './store'
+import { dbStatus, getData, getGeneration, getState, initStore, mutate, newId, onChange, readAuditLog, resetState } from './store'
 
 const cache = new Map<string, Model>()
 
@@ -59,10 +58,10 @@ if (gatewayKey) {
   })
 }
 
-app.get('/api/meta', (req, res) => res.json(model(req).meta()))
-app.get('/api/overview', (req, res) => res.json(model(req).overview(horizon(req))))
-app.get('/api/opportunities', (req, res) => res.json(model(req).opportunityViews()))
-app.get('/api/opportunities/:id', (req, res) => {
+app.get('/api/meta', async (req, res) => res.json(model(req).meta()))
+app.get('/api/overview', async (req, res) => res.json(model(req).overview(horizon(req))))
+app.get('/api/opportunities', async (req, res) => res.json(model(req).opportunityViews()))
+app.get('/api/opportunities/:id', async (req, res) => {
   const o = model(req).opportunityViews().find((x) => x.id === req.params.id)
   need(o, 404, 'Opportunity not found')
   res.json(o)
@@ -102,7 +101,7 @@ const editorOf = (req: Request) => {
 }
 
 // Saves a batch of opportunity edits together, and logs every changed field with who made it.
-app.post('/api/opportunities/edits', (req, res) => {
+app.post('/api/opportunities/edits', async (req, res) => {
   const raw = req.body?.edits
   need(raw && typeof raw === 'object' && Object.keys(raw).length > 0, 400, 'Nothing to save')
   const current = new Map(model(req).opportunities.map((o) => [o.id, o]))
@@ -123,7 +122,7 @@ app.post('/api/opportunities/edits', (req, res) => {
       if (from !== to) log.push({ at, ...who, opportunityId: id, opportunityName: o.name, field, from, to })
     }
   }
-  mutate((s) => {
+  await mutate((s) => {
     for (const [id, edit] of edits) {
       s.opportunityEdits[id] = { ...s.opportunityEdits[id], ...edit }
       s.opportunityTimes[id] = { createdAt: s.opportunityTimes[id]?.createdAt ?? at, modifiedAt: at }
@@ -132,7 +131,7 @@ app.post('/api/opportunities/edits', (req, res) => {
   res.json({ ok: true, changes: log.length })
 })
 // A new opportunity entered in the app. Its ID continues the tracker's numbering (OPP-007, …).
-app.post('/api/opportunities', (req, res) => {
+app.post('/api/opportunities', async (req, res) => {
   const b = (req.body ?? {}) as Record<string, unknown>
   const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
   const account = text(b.account)
@@ -149,7 +148,7 @@ app.post('/api/opportunities', (req, res) => {
   const at = new Date().toISOString()
 
   let created: Opportunity | undefined
-  mutate((s) => {
+  await mutate((s) => {
     // Numbered inside the save, so two people adding at once can't get the same ID.
     const taken = [...getData().opportunities, ...s.opportunitiesAdded].map((o) => /^OPP-(\d+)$/.exec(o.id)?.[1]).filter(Boolean).map(Number)
     const id = `OPP-${String(Math.max(0, ...taken) + 1).padStart(3, '0')}`
@@ -175,7 +174,7 @@ app.post('/api/opportunities', (req, res) => {
 })
 // Saves a batch of skill levels together (`${employeeCode}|${skill}` → 0 none … 4 Expert), logging each
 // change with the caller's IP — the same staged Save as opportunity edits.
-app.post('/api/skills/edits', (req, res) => {
+app.post('/api/skills/edits', async (req, res) => {
   const raw = req.body?.edits
   need(raw && typeof raw === 'object' && !Array.isArray(raw), 400, 'Edits must be an object of "employeeCode|skill" → level')
   const entries = Object.entries(raw as Record<string, unknown>)
@@ -200,14 +199,14 @@ app.post('/api/skills/edits', (req, res) => {
   const log: AuditEntry[] = edits
     .filter((e) => e.level !== e.current)
     .map((e) => ({ at, editor: editorOf(req), ip, userAgent: String(req.headers['user-agent'] ?? ''), opportunityId: e.code, opportunityName: e.skill, field: 'skill', from: e.current, to: e.level }))
-  mutate((s) => {
+  await mutate((s) => {
     for (const e of edits) s.skillEdits[e.key] = e.level
   }, log)
   res.json({ ok: true, changes: log.length })
 })
 // Adds a skill to the catalogue (dim_skill). It becomes a matrix column for everyone; people are rated on it
 // in the Skill rating tab. Names are unique ignoring case; the category is one of the three sections.
-app.post('/api/skills', (req, res) => {
+app.post('/api/skills', async (req, res) => {
   const skill = typeof req.body?.skill === 'string' ? req.body.skill.trim().replace(/\s+/g, ' ') : ''
   const category = req.body?.category
   need(skill.length >= 2 && skill.length <= 60, 400, 'Skill name must be 2–60 characters')
@@ -216,7 +215,7 @@ app.post('/api/skills', (req, res) => {
   need(!model(req).catalog.some((s) => s.skill.toLowerCase() === skill.toLowerCase()), 409, `"${skill}" is already in the catalogue`)
   const at = new Date().toISOString()
   const ip = clientIp(req)
-  mutate(
+  await mutate(
     (s) => {
       need(!s.skillCatalog.some((x) => x.skill.toLowerCase() === skill.toLowerCase()), 409, `"${skill}" is already in the catalogue`)
       s.skillCatalog.push({ skill, category, family: `app:${skill.toLowerCase()}`, source: 'app', createdAt: at })
@@ -226,29 +225,29 @@ app.post('/api/skills', (req, res) => {
   res.status(201).json({ skill, category })
 })
 // The client dimension (dim_client), A–Z — the Account choices when adding an opportunity.
-app.get('/api/clients', (_req, res) => res.json([...getState().clients].sort((a, b) => a.name.localeCompare(b.name))))
+app.get('/api/clients', async (_req, res) => res.json([...getState().clients].sort((a, b) => a.name.localeCompare(b.name))))
 // Database health and the latest created / modified time of any opportunity, for the top bar.
-app.get('/api/status', (_req, res) => {
-  const s = dbStatus()
+app.get('/api/status', async (_req, res) => {
+  const s = await dbStatus()
   res.status(s.ok ? 200 : 503).json(s)
 })
-app.get('/api/audit', (req, res) => res.json(readAudit(Math.min(1000, Number(req.query.limit) || 200))))
-app.get('/api/requirements', (req, res) => res.json(model(req).requirementViews()))
-app.get('/api/requirements/:id/candidates', (req, res) => {
+app.get('/api/audit', async (req, res) => res.json(await readAuditLog(Math.min(1000, Number(req.query.limit) || 200))))
+app.get('/api/requirements', async (req, res) => res.json(model(req).requirementViews()))
+app.get('/api/requirements/:id/candidates', async (req, res) => {
   const m = model(req)
   const r = m.requirementViews().find((x) => x.id === req.params.id)
   need(r, 404, 'Requirement not found')
   res.json({ requirement: r, candidates: m.candidates(r!.id) })
 })
-app.get('/api/capacity', (req, res) => {
+app.get('/api/capacity', async (req, res) => {
   const m = model(req)
   const h = horizon(req)
   res.json({ asOf: m.asOf, horizon: h, rows: m.capacityRows(h), supplyDemand: m.supplyDemand() })
 })
-app.get('/api/risk', (req, res) => res.json(model(req).risk()))
-app.get('/api/skills', (req, res) => res.json(model(req).skillsMatrix()))
-app.get('/api/employees', (req, res) => res.json([...model(req).capacity.values()]))
-app.get('/api/employees/:code', (req, res) => {
+app.get('/api/risk', async (req, res) => res.json(model(req).risk()))
+app.get('/api/skills', async (req, res) => res.json(model(req).skillsMatrix()))
+app.get('/api/employees', async (req, res) => res.json([...model(req).capacity.values()]))
+app.get('/api/employees/:code', async (req, res) => {
   const e = model(req).employee360(req.params.code)
   need(e, 404, 'Employee not found')
   res.json(e)
@@ -256,7 +255,7 @@ app.get('/api/employees/:code', (req, res) => {
 
 // --- deployment decisions ---------------------------------------------------------------
 
-app.post('/api/assignments', (req, res) => {
+app.post('/api/assignments', async (req, res) => {
   const { requirementId, employeeCode, fte, status } = req.body ?? {}
   const m = model(req)
   const r = m.requirements.find((x) => x.id === requirementId)
@@ -268,10 +267,10 @@ app.post('/api/assignments', (req, res) => {
   need(!getState().assignments.some((a) => a.requirementId === requirementId && a.employeeCode === employeeCode), 409, 'Already assigned to this requirement')
   const now = new Date().toISOString()
   const a: Assignment = { id: newId('ASG'), requirementId, employeeCode, fte: f, status: (status ?? 'proposed') as AssignmentStatus, createdAt: now, updatedAt: now }
-  mutate((s) => s.assignments.push(a))
+  await mutate((s) => s.assignments.push(a))
   res.status(201).json(a)
 })
-app.patch('/api/assignments/:id', (req, res) => {
+app.patch('/api/assignments/:id', async (req, res) => {
   const a = getState().assignments.find((x) => x.id === req.params.id)
   need(a, 404, 'Assignment not found')
   const { status, fte } = req.body ?? {}
@@ -279,7 +278,7 @@ app.patch('/api/assignments/:id', (req, res) => {
   need(fte === undefined || (Number(fte) > 0 && Number(fte) <= 1), 400, 'FTE must be between 0 and 1')
   // mutate hands over a fresh copy read from the database, so change the assignment found in it.
   let updated: Assignment | undefined
-  mutate((s) => {
+  await mutate((s) => {
     updated = s.assignments.find((x) => x.id === req.params.id)
     need(updated, 404, 'Assignment not found')
     if (status) updated!.status = status
@@ -288,9 +287,9 @@ app.patch('/api/assignments/:id', (req, res) => {
   })
   res.json(updated)
 })
-app.delete('/api/assignments/:id', (req, res) => {
+app.delete('/api/assignments/:id', async (req, res) => {
   need(getState().assignments.some((x) => x.id === req.params.id), 404, 'Assignment not found')
-  mutate((s) => (s.assignments = s.assignments.filter((x) => x.id !== req.params.id)))
+  await mutate((s) => (s.assignments = s.assignments.filter((x) => x.id !== req.params.id)))
   res.status(204).end()
 })
 
@@ -317,28 +316,28 @@ const pickReq = (b: Partial<Requirement>) => ({
   ...(b.end !== undefined && { end: b.end }),
 })
 
-app.post('/api/opportunities/:id/requirements', (req, res) => {
+app.post('/api/opportunities/:id/requirements', async (req, res) => {
   const o = model(req).opportunities.find((x) => x.id === req.params.id)
   need(o, 404, 'Opportunity not found')
   validateRequirement(req.body ?? {}, false)
   const r: Requirement = { id: newId(`${o!.id}-R`), opportunityId: o!.id, ...(pickReq(req.body) as Omit<Requirement, 'id' | 'opportunityId' | 'provenance'>), provenance: 'app' }
-  mutate((s) => s.requirementsAdded.push(r))
+  await mutate((s) => s.requirementsAdded.push(r))
   res.status(201).json(r)
 })
-app.patch('/api/requirements/:id', (req, res) => {
+app.patch('/api/requirements/:id', async (req, res) => {
   const exists = getData().requirements.some((r) => r.id === req.params.id) || getState().requirementsAdded.some((r) => r.id === req.params.id)
   need(exists, 404, 'Requirement not found')
   validateRequirement(req.body ?? {}, true)
   const patch = pickReq(req.body)
-  mutate((s) => {
+  await mutate((s) => {
     const added = s.requirementsAdded.find((r) => r.id === req.params.id)
     if (added) Object.assign(added, patch)
     else s.requirementEdits[req.params.id] = { ...s.requirementEdits[req.params.id], ...patch }
   })
   res.json({ ok: true })
 })
-app.delete('/api/requirements/:id', (req, res) => {
-  mutate((s) => {
+app.delete('/api/requirements/:id', async (req, res) => {
+  await mutate((s) => {
     s.requirementsAdded = s.requirementsAdded.filter((r) => r.id !== req.params.id)
     if (getData().requirements.some((r) => r.id === req.params.id)) s.requirementsDeleted.push(req.params.id)
     s.assignments = s.assignments.filter((a) => a.requirementId !== req.params.id)
@@ -348,15 +347,15 @@ app.delete('/api/requirements/:id', (req, res) => {
 
 // --- skills ------------------------------------------------------------------------------------
 
-app.post('/api/employees/:code/skills/review', (req, res) => {
+app.post('/api/employees/:code/skills/review', async (req, res) => {
   const m = model(req)
   need(m.skillsByEmp.has(req.params.code), 404, 'No skill profile for this employee')
-  mutate((s) => (s.skillReviews[req.params.code] = m.asOf))
+  await mutate((s) => (s.skillReviews[req.params.code] = m.asOf))
   res.json({ ok: true, reviewedOn: m.asOf })
 })
 
 // Live updates: each open browser holds one of these streams and refetches when told data changed.
-app.get('/api/events', (req, res) => {
+app.get('/api/events', async (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' })
   res.flushHeaders()
   res.write(`event: hello\ndata: ${getState().version}\n\n`)
@@ -369,8 +368,8 @@ app.get('/api/events', (req, res) => {
   })
 })
 
-app.post('/api/reset', (_req, res) => {
-  resetState()
+app.post('/api/reset', async (_req, res) => {
+  await resetState()
   res.json({ ok: true })
 })
 
@@ -385,10 +384,12 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 const dist = path.join(ROOT, 'dist')
 if (fs.existsSync(dist)) {
   app.use(express.static(dist))
-  app.get(/^\/(?!api).*/, (_req, res) => res.sendFile(path.join(dist, 'index.html')))
+  app.get(/^\/(?!api).*/, async (_req, res) => res.sendFile(path.join(dist, 'index.html')))
 }
 
 // In dev the Vite proxy targets API_PORT (default 4100), so an inherited PORT must not move the API.
 const isDev = process.argv.includes('--dev')
 const port = Number(process.env.API_PORT ?? (isDev ? undefined : process.env.PORT) ?? 4100)
-app.listen(port, () => console.log(`Workforce API on http://localhost:${port} · ${getData().employees.length} employees · ${getData().opportunities.length} opportunities · database ${DB_FILE}`))
+// Connect to the database (Azure SQL or SQLite, per the settings) before taking any request.
+const database = await initStore()
+app.listen(port, () => console.log(`Workforce API on http://localhost:${port} · ${getData().employees.length} employees · ${getData().opportunities.length} opportunities · ${database}`))

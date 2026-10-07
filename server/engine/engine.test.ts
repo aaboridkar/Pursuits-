@@ -9,7 +9,8 @@ import { test } from 'node:test'
 import type { AuditEntry } from '../../shared/types'
 import { applyOpportunityEdit } from '../../shared/opportunityEdit'
 import { loadDataset } from '../data/load'
-import { openDb, readAudit, readDataset, readRuntime, updateRuntime } from '../db'
+import { openDb, readAudit, readDataset, readRuntime, snake, updateRuntime, type Spec } from '../db'
+import { azureSqlConfigFromEnv, fromRow, rowsPerInsert, toParam } from '../db-mssql'
 import type { RuntimeState } from '../store'
 import { Model } from './model'
 
@@ -114,6 +115,28 @@ test('the database holds exactly what the CSVs load, and saves edits with their 
     db.close()
     fs.rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('Azure SQL settings, row conversion and batching', () => {
+  // Settings: off unless AZURE_SQL_SERVER is set; Entra by default; SQL login needs both user and password.
+  assert.equal(azureSqlConfigFromEnv({}), null)
+  const entra = azureSqlConfigFromEnv({ AZURE_SQL_SERVER: 'srv.database.windows.net', AZURE_SQL_DATABASE: 'db' })!
+  assert.deepEqual([entra.auth, entra.schema], ['entra', 'AIT_SC_Gov'])
+  assert.throws(() => azureSqlConfigFromEnv({ AZURE_SQL_SERVER: 's', AZURE_SQL_DATABASE: 'db', AZURE_SQL_AUTH: 'sql', AZURE_SQL_USER: 'u' }), /AZURE_SQL_PASSWORD/)
+  assert.throws(() => azureSqlConfigFromEnv({ AZURE_SQL_SERVER: 's', AZURE_SQL_DATABASE: 'db', AZURE_SQL_SCHEMA: 'x; DROP' }), /AZURE_SQL_SCHEMA/)
+
+  // A record survives the trip to SQL Server types and back: DATE, DATETIME2, JSON, numbers, optional columns.
+  const spec = { table: 't', cols: [['estStartDate', 'TEXT'], ['createdAt', 'TEXT'], ['monthly', 'JSON'], ['value', 'REAL'], ['basis', 'TEXT']] as Spec['cols'], optional: ['basis'] }
+  const rec = { estStartDate: '2026-11-01', createdAt: '2026-10-07T09:34:41.582Z', monthly: [{ month: '2026-11', value: 52889 }], value: 680000 }
+  const asStored = Object.fromEntries(spec.cols.map(([p, t]) => [snake(p), toParam(p, t, (rec as Record<string, unknown>)[p]).value]))
+  assert.ok(asStored.est_start_date instanceof Date && asStored.created_at instanceof Date)
+  assert.equal(typeof asStored.monthly, 'string')
+  assert.deepEqual(fromRow(asStored, spec), rec) // 'basis' was NULL and is optional, so it is left off
+
+  // One INSERT stays under SQL Server's 2,100 parameters and 1,000 rows.
+  assert.equal(rowsPerInsert(21), 95)
+  assert.equal(rowsPerInsert(1), 1000)
+  assert.ok(rowsPerInsert(18) * 18 <= 2100)
 })
 
 test('a one-person seat on a multi-FTE requirement is judged per seat', () => {

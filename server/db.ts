@@ -16,15 +16,15 @@ export const DB_FILE = process.env.PURSUITS_DB ?? path.join(ROOT, 'data', 'pursu
 // Each record type maps property ↔ column one to one (camelCase ↔ snake_case). JSON columns hold
 // nested values; optional properties are left off the record when their column is NULL.
 
-type ColType = 'TEXT' | 'INTEGER' | 'REAL' | 'JSON'
-interface Spec {
+export type ColType = 'TEXT' | 'INTEGER' | 'REAL' | 'JSON'
+export interface Spec {
   table: string
   cols: [prop: string, type: ColType][]
   key?: string
   optional?: string[]
 }
 
-const snake = (prop: string) => prop.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
+export const snake = (prop: string) => prop.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 const q = (ident: string) => `"${ident}"`
 
 /** The employee master (dim_employee). */
@@ -96,6 +96,13 @@ const SKILL_REVIEWS: Spec = { table: 'skill_reviews', key: 'employeeCode', cols:
 const SKILL_EDITS: Spec = { table: 'skill_edits', key: 'key', cols: [['key', 'TEXT'], ['proficiency', 'INTEGER']] }
 
 const BASE = [EMPLOYEES, ALLOCATIONS, SKILLS, OPPORTUNITIES, REQUIREMENTS, QUALITY, SOURCES, SKILL_ONLY]
+
+/** The table definitions, shared with the Azure SQL backend (db-mssql.ts) so both read and write the same shapes. */
+export const SPECS = {
+  EMPLOYEES, ALLOCATIONS, SKILLS, OPPORTUNITIES, REQUIREMENTS, QUALITY, SOURCES, SKILL_ONLY,
+  ASSIGNMENTS, OPPORTUNITIES_ADDED, REQUIREMENTS_ADDED, REQUIREMENT_EDITS, REQUIREMENTS_DELETED, OPPORTUNITY_EDITS,
+  CLIENTS, SKILLS_DIM, OPPORTUNITY_TIMES, SKILL_REVIEWS,
+}
 const RUNTIME = [CLIENTS, SKILLS_DIM, ASSIGNMENTS, OPPORTUNITIES_ADDED, REQUIREMENTS_ADDED, REQUIREMENT_EDITS, REQUIREMENTS_DELETED, OPPORTUNITY_EDITS, OPPORTUNITY_TIMES, SKILL_REVIEWS, SKILL_EDITS]
 
 const ddl = (s: Spec) =>
