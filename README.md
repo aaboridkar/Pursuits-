@@ -77,46 +77,21 @@ The same code runs in both places; `npm start` picks the role. With `API_UPSTREA
 
 ### 1. The VM (Ubuntu) — server and database
 
-```bash
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt-get install -y nodejs unzip sqlite3          # node --version must be v24+
-sudo mkdir -p /opt/pursuits /var/lib/pursuits && sudo chown -R $USER /opt/pursuits /var/lib/pursuits
-unzip -o ~/pursuits.zip -d /opt/pursuits && cd /opt/pursuits    # project zip copied over with scp
-npm install && npm run build && npm test
-openssl rand -hex 32                                   # the GATEWAY_KEY — keep it, both sides need it
-```
-
-`/etc/systemd/system/pursuits.service`:
-
-```ini
-[Unit]
-Description=Pursuits server
-After=network.target
-
-[Service]
-User=YOUR-USER
-WorkingDirectory=/opt/pursuits
-Environment=PORT=4100
-Environment=PURSUITS_DB=/var/lib/pursuits/pursuits.db
-Environment=GATEWAY_KEY=PASTE-THE-KEY
-Environment=TRUST_PROXY=1
-ExecStart=/usr/bin/npm start
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
+Copy the project zip to the VM and run the setup script. It installs Node.js 24 and SQLite tools, creates a `pursuits` service account, installs/builds/tests the app, creates the database (from the CSVs, or `IMPORT_DB=` an existing `pursuits.db`), generates the gateway key, runs it as a systemd service with nightly backups, and prints the two values for App Service. Re-running it with a newer zip updates the app and keeps the database and key.
 
 ```bash
-sudo systemctl daemon-reload && sudo systemctl enable --now pursuits
-curl http://localhost:4100/api/status        # 401 "Only the Pursuits gateway…" = running and protected
+unzip -p pursuits.zip deploy/setup-vm.sh > setup-vm.sh && chmod +x setup-vm.sh
+sudo ALLOW_FROM=<app-service-integration-subnet, e.g. 10.17.140.0/24> ./setup-vm.sh pursuits.zip
 ```
 
-Network: allow inbound TCP **4100** to the VM **only from the App Service integration subnet** (NSG rule / `ufw allow from <subnet> to any port 4100`).
-To start from existing data instead of the CSVs, stop the service and put `pursuits.db` in `/var/lib/pursuits/` first.
-Backups: `crontab -e` → `0 2 * * * sqlite3 /var/lib/pursuits/pursuits.db ".backup /var/backups/pursuits/pursuits-$(date +\%F).db"`.
+| Setting | Default | |
+|---|---|---|
+| `ALLOW_FROM` | — | Only this subnet may reach the port (ufw); otherwise set the same rule in the NSG |
+| `IMPORT_DB` / `FORCE_IMPORT=1` | — | Start from an existing database (the current one is backed up before replacing) |
+| `PORT` | 4100 | |
+| `DATA_DIR` | `/var/lib/pursuits` | The database; updates never touch it |
 
+Server settings live in `/etc/pursuits/pursuits.env`; `sudo journalctl -u pursuits -f` shows the log.
 ### 2. Azure App Service — the gateway
 
 1. **Create** a Web App: Code, **Node 24 LTS**, **Linux**, Basic B1 (or higher).
