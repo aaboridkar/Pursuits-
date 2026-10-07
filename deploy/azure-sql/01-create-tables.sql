@@ -2,7 +2,7 @@
    Pursuits — tables for Azure SQL Database (T-SQL)
    Target: supply-chain-capability-dev-supplychaindev-mssql-db
 
-   Everything is created in its own schema, [pursuits], so nothing collides with the tables already in this
+   Everything is created in its own schema, [SC_Gov], so nothing collides with the tables already in this
    database. Safe to run more than once: a table that already exists is left as it is; nothing is dropped.
 
    Run in SSMS / Azure Data Studio connected to the database above (New Query → paste → Execute).
@@ -19,7 +19,7 @@
 SET XACT_ABORT ON;
 GO
 
-IF SCHEMA_ID(N'pursuits') IS NULL EXEC (N'CREATE SCHEMA pursuits AUTHORIZATION dbo');
+IF SCHEMA_ID(N'SC_Gov') IS NULL EXEC (N'CREATE SCHEMA SC_Gov AUTHORIZATION dbo');
 GO
 
 /* ---------------------------------------------------------------------------------------------------------------------
@@ -27,8 +27,8 @@ GO
    --------------------------------------------------------------------------------------------------------------------- */
 
 -- Every client / account the app knows. New names typed in "Add opportunity" are added here (CL-0NN).
-IF OBJECT_ID(N'pursuits.dim_client', N'U') IS NULL
-CREATE TABLE pursuits.dim_client (
+IF OBJECT_ID(N'SC_Gov.dim_client', N'U') IS NULL
+CREATE TABLE SC_Gov.dim_client (
     id          NVARCHAR(10)   NOT NULL CONSTRAINT PK_dim_client PRIMARY KEY,           -- CL-001 …
     name        NVARCHAR(80)   NOT NULL CONSTRAINT UQ_dim_client_name UNIQUE,
     source      NVARCHAR(12)   NOT NULL CONSTRAINT CK_dim_client_source CHECK (source IN (N'opportunity', N'allocation', N'app')),
@@ -37,8 +37,8 @@ CREATE TABLE pursuits.dim_client (
 GO
 
 -- Employee master. Lead and "Add rating" pick from here. name is empty until names are loaded.
-IF OBJECT_ID(N'pursuits.dim_employee', N'U') IS NULL
-CREATE TABLE pursuits.dim_employee (
+IF OBJECT_ID(N'SC_Gov.dim_employee', N'U') IS NULL
+CREATE TABLE SC_Gov.dim_employee (
     code          NVARCHAR(20)  NOT NULL CONSTRAINT PK_dim_employee PRIMARY KEY,         -- e.g. F16605
     name          NVARCHAR(120) NULL,
     title         NVARCHAR(80)  NOT NULL,                                                -- designation
@@ -50,8 +50,8 @@ CREATE TABLE pursuits.dim_employee (
 GO
 
 -- Skill catalogue = the columns of the skills matrix, in three mutually exclusive sections.
-IF OBJECT_ID(N'pursuits.dim_skill', N'U') IS NULL
-CREATE TABLE pursuits.dim_skill (
+IF OBJECT_ID(N'SC_Gov.dim_skill', N'U') IS NULL
+CREATE TABLE SC_Gov.dim_skill (
     skill       NVARCHAR(60)  NOT NULL CONSTRAINT PK_dim_skill PRIMARY KEY,
     category    NVARCHAR(20)  NOT NULL CONSTRAINT CK_dim_skill_category CHECK (category IN (N'Supply Chain', N'Data Science', N'FDE')),
     family      NVARCHAR(80)  NOT NULL,                                                  -- groups related skills for matching
@@ -65,8 +65,8 @@ GO
    --------------------------------------------------------------------------------------------------------------------- */
 
 -- Opportunities imported from the tracker. Columns are shared with opportunities_added (created in the app).
-IF OBJECT_ID(N'pursuits.opportunities', N'U') IS NULL
-CREATE TABLE pursuits.opportunities (
+IF OBJECT_ID(N'SC_Gov.opportunities', N'U') IS NULL
+CREATE TABLE SC_Gov.opportunities (
     id                 NVARCHAR(20)   NOT NULL CONSTRAINT PK_opportunities PRIMARY KEY,   -- OPP-001, OPPX-101 …
     sno                INT            NULL,
     account            NVARCHAR(80)   NOT NULL,                                          -- client name (dim_client.name)
@@ -91,8 +91,8 @@ CREATE TABLE pursuits.opportunities (
 );
 GO
 
-IF OBJECT_ID(N'pursuits.opportunities_added', N'U') IS NULL
-CREATE TABLE pursuits.opportunities_added (
+IF OBJECT_ID(N'SC_Gov.opportunities_added', N'U') IS NULL
+CREATE TABLE SC_Gov.opportunities_added (
     id                 NVARCHAR(20)   NOT NULL CONSTRAINT PK_opportunities_added PRIMARY KEY,   -- OPP-007 …
     sno                INT            NULL,
     account            NVARCHAR(80)   NOT NULL,
@@ -118,10 +118,10 @@ CREATE TABLE pursuits.opportunities_added (
 GO
 
 -- People needed by each imported opportunity.
-IF OBJECT_ID(N'pursuits.requirements', N'U') IS NULL
-CREATE TABLE pursuits.requirements (
+IF OBJECT_ID(N'SC_Gov.requirements', N'U') IS NULL
+CREATE TABLE SC_Gov.requirements (
     id              NVARCHAR(40)  NOT NULL CONSTRAINT PK_requirements PRIMARY KEY,       -- OPP-002-R1 …
-    opportunity_id  NVARCHAR(20)  NOT NULL CONSTRAINT FK_requirements_opportunity REFERENCES pursuits.opportunities (id),
+    opportunity_id  NVARCHAR(20)  NOT NULL CONSTRAINT FK_requirements_opportunity REFERENCES SC_Gov.opportunities (id),
     role            NVARCHAR(80)  NOT NULL,
     grade           TINYINT       NOT NULL,
     fte             DECIMAL(5,2)  NOT NULL CONSTRAINT CK_requirements_fte CHECK (fte > 0 AND fte <= 10),
@@ -133,13 +133,13 @@ CREATE TABLE pursuits.requirements (
     CONSTRAINT CK_requirements_dates CHECK ([end] >= [start])
 );
 GO
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_requirements_opportunity' AND object_id = OBJECT_ID(N'pursuits.requirements'))
-    CREATE INDEX IX_requirements_opportunity ON pursuits.requirements (opportunity_id);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_requirements_opportunity' AND object_id = OBJECT_ID(N'SC_Gov.requirements'))
+    CREATE INDEX IX_requirements_opportunity ON SC_Gov.requirements (opportunity_id);
 GO
 
 -- Requirements added in the app (may belong to an app-created opportunity, so no foreign key).
-IF OBJECT_ID(N'pursuits.requirements_added', N'U') IS NULL
-CREATE TABLE pursuits.requirements_added (
+IF OBJECT_ID(N'SC_Gov.requirements_added', N'U') IS NULL
+CREATE TABLE SC_Gov.requirements_added (
     id              NVARCHAR(40)  NOT NULL CONSTRAINT PK_requirements_added PRIMARY KEY,
     opportunity_id  NVARCHAR(20)  NOT NULL,
     role            NVARCHAR(80)  NOT NULL,
@@ -155,10 +155,10 @@ CREATE TABLE pursuits.requirements_added (
 GO
 
 -- Allocation report: who is on which project, when, and at what %.
-IF OBJECT_ID(N'pursuits.allocations', N'U') IS NULL
-CREATE TABLE pursuits.allocations (
+IF OBJECT_ID(N'SC_Gov.allocations', N'U') IS NULL
+CREATE TABLE SC_Gov.allocations (
     id                 NVARCHAR(40)   NOT NULL CONSTRAINT PK_allocations PRIMARY KEY,
-    employee_code      NVARCHAR(20)   NOT NULL CONSTRAINT FK_allocations_employee REFERENCES pursuits.dim_employee (code),
+    employee_code      NVARCHAR(20)   NOT NULL CONSTRAINT FK_allocations_employee REFERENCES SC_Gov.dim_employee (code),
     project_code       NVARCHAR(60)   NOT NULL,
     project_name       NVARCHAR(200)  NOT NULL,
     client             NVARCHAR(80)   NOT NULL,
@@ -177,13 +177,13 @@ CREATE TABLE pursuits.allocations (
     assignment_id      NVARCHAR(40)   NULL
 );
 GO
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_allocations_employee' AND object_id = OBJECT_ID(N'pursuits.allocations'))
-    CREATE INDEX IX_allocations_employee ON pursuits.allocations (employee_code, [start], [end]);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_allocations_employee' AND object_id = OBJECT_ID(N'SC_Gov.allocations'))
+    CREATE INDEX IX_allocations_employee ON SC_Gov.allocations (employee_code, [start], [end]);
 GO
 
 -- Skills people hold (imported). Ratings changed in the app are in skill_edits.
-IF OBJECT_ID(N'pursuits.employee_skills', N'U') IS NULL
-CREATE TABLE pursuits.employee_skills (
+IF OBJECT_ID(N'SC_Gov.employee_skills', N'U') IS NULL
+CREATE TABLE SC_Gov.employee_skills (
     id             INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_employee_skills PRIMARY KEY,
     employee_code  NVARCHAR(20)   NOT NULL,                                              -- dim_employee.code or skill_only_employees.code
     skill          NVARCHAR(60)   NOT NULL,                                              -- dim_skill.skill
@@ -194,16 +194,16 @@ CREATE TABLE pursuits.employee_skills (
     basis          NVARCHAR(400)  NULL
 );
 GO
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_employee_skills_employee' AND object_id = OBJECT_ID(N'pursuits.employee_skills'))
-    CREATE INDEX IX_employee_skills_employee ON pursuits.employee_skills (employee_code, skill);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_employee_skills_employee' AND object_id = OBJECT_ID(N'SC_Gov.employee_skills'))
+    CREATE INDEX IX_employee_skills_employee ON SC_Gov.employee_skills (employee_code, skill);
 GO
 
 -- Deployment decisions: a person proposed for / confirmed on a requirement.
-IF OBJECT_ID(N'pursuits.assignments', N'U') IS NULL
-CREATE TABLE pursuits.assignments (
+IF OBJECT_ID(N'SC_Gov.assignments', N'U') IS NULL
+CREATE TABLE SC_Gov.assignments (
     id              NVARCHAR(40)  NOT NULL CONSTRAINT PK_assignments PRIMARY KEY,
     requirement_id  NVARCHAR(40)  NOT NULL,
-    employee_code   NVARCHAR(20)  NOT NULL CONSTRAINT FK_assignments_employee REFERENCES pursuits.dim_employee (code),
+    employee_code   NVARCHAR(20)  NOT NULL CONSTRAINT FK_assignments_employee REFERENCES SC_Gov.dim_employee (code),
     fte             DECIMAL(4,2)  NOT NULL CONSTRAINT CK_assignments_fte CHECK (fte > 0 AND fte <= 1),
     status          NVARCHAR(10)  NOT NULL CONSTRAINT CK_assignments_status CHECK (status IN (N'proposed', N'confirmed')),
     created_at      DATETIME2(3)  NOT NULL,
@@ -217,16 +217,16 @@ GO
    --------------------------------------------------------------------------------------------------------------------- */
 
 -- Saved changes to an opportunity: {"stage":…,"type":…,"estStartDate":…,"months":…,"value":…,"confWinning":…,"lead":…}
-IF OBJECT_ID(N'pursuits.opportunity_edits', N'U') IS NULL
-CREATE TABLE pursuits.opportunity_edits (
+IF OBJECT_ID(N'SC_Gov.opportunity_edits', N'U') IS NULL
+CREATE TABLE SC_Gov.opportunity_edits (
     opportunity_id  NVARCHAR(20)   NOT NULL CONSTRAINT PK_opportunity_edits PRIMARY KEY,
     edit            NVARCHAR(MAX)  NOT NULL CONSTRAINT CK_opportunity_edits_json CHECK (ISJSON(edit) = 1)
 );
 GO
 
 -- When each opportunity was created and last saved (drives "Updated …" in the top bar).
-IF OBJECT_ID(N'pursuits.opportunity_times', N'U') IS NULL
-CREATE TABLE pursuits.opportunity_times (
+IF OBJECT_ID(N'SC_Gov.opportunity_times', N'U') IS NULL
+CREATE TABLE SC_Gov.opportunity_times (
     opportunity_id  NVARCHAR(20)  NOT NULL CONSTRAINT PK_opportunity_times PRIMARY KEY,
     created_at      DATETIME2(3)  NOT NULL,
     modified_at     DATETIME2(3)  NOT NULL,
@@ -234,31 +234,31 @@ CREATE TABLE pursuits.opportunity_times (
 );
 GO
 
-IF OBJECT_ID(N'pursuits.requirement_edits', N'U') IS NULL
-CREATE TABLE pursuits.requirement_edits (
+IF OBJECT_ID(N'SC_Gov.requirement_edits', N'U') IS NULL
+CREATE TABLE SC_Gov.requirement_edits (
     requirement_id  NVARCHAR(40)   NOT NULL CONSTRAINT PK_requirement_edits PRIMARY KEY,
     edit            NVARCHAR(MAX)  NOT NULL CONSTRAINT CK_requirement_edits_json CHECK (ISJSON(edit) = 1)
 );
 GO
 
-IF OBJECT_ID(N'pursuits.requirements_deleted', N'U') IS NULL
-CREATE TABLE pursuits.requirements_deleted (
+IF OBJECT_ID(N'SC_Gov.requirements_deleted', N'U') IS NULL
+CREATE TABLE SC_Gov.requirements_deleted (
     requirement_id  NVARCHAR(40)  NOT NULL CONSTRAINT PK_requirements_deleted PRIMARY KEY
 );
 GO
 
 -- Ratings set in "Skill rating" / "Add rating". 0 = skill removed.
-IF OBJECT_ID(N'pursuits.skill_edits', N'U') IS NULL
-CREATE TABLE pursuits.skill_edits (
+IF OBJECT_ID(N'SC_Gov.skill_edits', N'U') IS NULL
+CREATE TABLE SC_Gov.skill_edits (
     employee_code  NVARCHAR(20)  NOT NULL,
-    skill          NVARCHAR(60)  NOT NULL CONSTRAINT FK_skill_edits_skill REFERENCES pursuits.dim_skill (skill),
+    skill          NVARCHAR(60)  NOT NULL CONSTRAINT FK_skill_edits_skill REFERENCES SC_Gov.dim_skill (skill),
     proficiency    TINYINT       NOT NULL CONSTRAINT CK_skill_edits_level CHECK (proficiency BETWEEN 0 AND 4),
     CONSTRAINT PK_skill_edits PRIMARY KEY (employee_code, skill)
 );
 GO
 
-IF OBJECT_ID(N'pursuits.skill_reviews', N'U') IS NULL
-CREATE TABLE pursuits.skill_reviews (
+IF OBJECT_ID(N'SC_Gov.skill_reviews', N'U') IS NULL
+CREATE TABLE SC_Gov.skill_reviews (
     employee_code  NVARCHAR(20)  NOT NULL CONSTRAINT PK_skill_reviews PRIMARY KEY,
     reviewed_on    DATE          NOT NULL
 );
@@ -269,8 +269,8 @@ GO
    --------------------------------------------------------------------------------------------------------------------- */
 
 -- Every save: who (IP, or signed-in name), when, which record, which field, from → to.
-IF OBJECT_ID(N'pursuits.audit_log', N'U') IS NULL
-CREATE TABLE pursuits.audit_log (
+IF OBJECT_ID(N'SC_Gov.audit_log', N'U') IS NULL
+CREATE TABLE SC_Gov.audit_log (
     id                BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_audit_log PRIMARY KEY,
     at                DATETIME2(3)   NOT NULL CONSTRAINT DF_audit_log_at DEFAULT SYSUTCDATETIME(),
     editor            NVARCHAR(256)  NOT NULL,
@@ -284,20 +284,20 @@ CREATE TABLE pursuits.audit_log (
     to_value          NVARCHAR(MAX)  NULL
 );
 GO
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_audit_log_at' AND object_id = OBJECT_ID(N'pursuits.audit_log'))
-    CREATE INDEX IX_audit_log_at ON pursuits.audit_log (at DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_audit_log_at' AND object_id = OBJECT_ID(N'SC_Gov.audit_log'))
+    CREATE INDEX IX_audit_log_at ON SC_Gov.audit_log (at DESC);
 GO
 
 -- version (bumped on every save, drives live refresh) and seeded_at.
-IF OBJECT_ID(N'pursuits.meta', N'U') IS NULL
-CREATE TABLE pursuits.meta (
+IF OBJECT_ID(N'SC_Gov.meta', N'U') IS NULL
+CREATE TABLE SC_Gov.meta (
     [key]  NVARCHAR(40)   NOT NULL CONSTRAINT PK_meta PRIMARY KEY,
     value  NVARCHAR(200)  NOT NULL
 );
 GO
 
-IF OBJECT_ID(N'pursuits.data_sources', N'U') IS NULL
-CREATE TABLE pursuits.data_sources (
+IF OBJECT_ID(N'SC_Gov.data_sources', N'U') IS NULL
+CREATE TABLE SC_Gov.data_sources (
     [file]       NVARCHAR(120)  NOT NULL CONSTRAINT PK_data_sources PRIMARY KEY,
     provenance   NVARCHAR(12)   NOT NULL,
     [rows]       INT            NOT NULL,
@@ -305,8 +305,8 @@ CREATE TABLE pursuits.data_sources (
 );
 GO
 
-IF OBJECT_ID(N'pursuits.data_quality', N'U') IS NULL
-CREATE TABLE pursuits.data_quality (
+IF OBJECT_ID(N'SC_Gov.data_quality', N'U') IS NULL
+CREATE TABLE SC_Gov.data_quality (
     id        NVARCHAR(60)    NOT NULL CONSTRAINT PK_data_quality PRIMARY KEY,
     [file]    NVARCHAR(120)   NOT NULL,
     severity  NVARCHAR(10)    NOT NULL CONSTRAINT CK_data_quality_severity CHECK (severity IN (N'high', N'watch')),
@@ -317,8 +317,8 @@ CREATE TABLE pursuits.data_quality (
 GO
 
 -- People with skills in Skills.csv but no allocation rows.
-IF OBJECT_ID(N'pursuits.skill_only_employees', N'U') IS NULL
-CREATE TABLE pursuits.skill_only_employees (
+IF OBJECT_ID(N'SC_Gov.skill_only_employees', N'U') IS NULL
+CREATE TABLE SC_Gov.skill_only_employees (
     code  NVARCHAR(20)  NOT NULL CONSTRAINT PK_skill_only_employees PRIMARY KEY
 );
 GO
@@ -326,7 +326,7 @@ GO
 /* ---------------------------------------------------------------------------------------------------------------------
    SEED: the shipped skill catalogue (35 skills, MECE) and the version row. Rows that already exist are kept.
    --------------------------------------------------------------------------------------------------------------------- */
-INSERT INTO pursuits.dim_skill (skill, category, family, source)
+INSERT INTO SC_Gov.dim_skill (skill, category, family, source)
 SELECT v.skill, v.category, v.family, N'catalog'
 FROM (VALUES
     (N'Demand planning',               N'Supply Chain', N'planning'),
@@ -365,11 +365,11 @@ FROM (VALUES
     (N'MLOps / LLMOps',                N'FDE',          N'fde-ops'),
     (N'Rapid prototyping',             N'FDE',          N'fde-build')
 ) AS v (skill, category, family)
-WHERE NOT EXISTS (SELECT 1 FROM pursuits.dim_skill d WHERE d.skill = v.skill);
+WHERE NOT EXISTS (SELECT 1 FROM SC_Gov.dim_skill d WHERE d.skill = v.skill);
 GO
 
-IF NOT EXISTS (SELECT 1 FROM pursuits.meta WHERE [key] = N'version')
-    INSERT INTO pursuits.meta ([key], value) VALUES (N'version', N'1');
+IF NOT EXISTS (SELECT 1 FROM SC_Gov.meta WHERE [key] = N'version')
+    INSERT INTO SC_Gov.meta ([key], value) VALUES (N'version', N'1');
 GO
 
 /* ---------------------------------------------------------------------------------------------------------------------
@@ -378,9 +378,9 @@ GO
 SELECT t.name AS table_name, SUM(p.rows) AS row_count
 FROM sys.tables t
 JOIN sys.partitions p ON p.object_id = t.object_id AND p.index_id IN (0, 1)
-WHERE t.schema_id = SCHEMA_ID(N'pursuits')
+WHERE t.schema_id = SCHEMA_ID(N'SC_Gov')
 GROUP BY t.name
 ORDER BY t.name;
 
-SELECT category, COUNT(*) AS skills FROM pursuits.dim_skill GROUP BY category ORDER BY category;
+SELECT category, COUNT(*) AS skills FROM SC_Gov.dim_skill GROUP BY category ORDER BY category;
 GO
